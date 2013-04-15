@@ -1,0 +1,3 @@
+[submodule "vendor/OSRM"]
+	path = vendor/OSRM
+	url = git://github.com/DennisOSRM/Project-OSRM.git
