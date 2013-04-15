@@ -225,15 +225,6 @@ var cities = {
     }
 };
 
-data.forEach(function (data_source) {
-    downloads.push(function (callback) {
-        downloadFile(data_source, callback);
-    });
-    etl.push(function (callback) {
-        data_source.etl(data_source, callback);
-    });
-});
-
 multi.charm.write("====================================\n");
 multi.charm.write("SafestWay Download & Extraction Tool\n");
 multi.charm.write("------------------------------------\n\n");
@@ -252,6 +243,15 @@ if (city) {
         process.exit(1);
     }
 }
+
+data.forEach(function (data_source) {
+    downloads.push(function (callback) {
+        downloadFile(data_source, callback);
+    });
+    etl.push(function (callback) {
+        data_source.etl(data_source, callback);
+    });
+});
 
 async.parallel(downloads, function (err, results) {
     if (err) {
