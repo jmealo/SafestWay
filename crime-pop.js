@@ -82,7 +82,6 @@ if (cluster.isMaster) {
                     crimes_done += msg.crimes.length;
                     bar.ratio(crimes_done, crime_count);
                     msg.crimes.forEach(function(crime) {
-                       console.log(crimes[crime]);
                     });
                 });
             }
