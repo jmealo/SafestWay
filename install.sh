@@ -19,8 +19,13 @@ ____    __    ____  ___   ____    ____
 
 HEADER
 
+# Determine OS
+if [[ -e /etc/debian_version ]]; then OS="debian"; fi
+if [[ $OSTYPE == "darwin"* ]]; then OS="osx"; fi
+if [[ $OSTYPE == "solaris"* ]]; then OS="smartos"; fi
+
 #OSX Specific
-if [[ $OSTYPE == "darwin"* ]]
+if [[ $OS == "osx" ]]
 then
 cat <<NOTICE
 *******************************************************************************
@@ -29,7 +34,9 @@ them to process data in parallel. (THIS REQUIRES ROOT ACCESS) If you don't know
 your root password, visit: http://support.apple.com/kb/ht1528
 *******************************************************************************
 NOTICE
-    read -p "Would you like to adjust the kernel parameters as needed? [y/n]" -n 1
+    #TODO: prompt function
+    
+    read -p "$(echo -e '\n\bWould you like to adjust the kernel parameters as needed? [y/n]\n\b')" -n 1
     if [[ $REPLY =~ ^[Yy]$ ]]
     then
         echo ""
@@ -40,32 +47,125 @@ NOTICE
         echo ""
         echo "Continuing begrudgingly... you may run into problems."
     fi
+
+    #check for Xcode and command line tools or a third-party GCC/clang
+    if [[ `which gcc` == '' ]]
+    then
+         if [[ ! `xcode-select -v` == "xcode-select version"* ]]
+         then
+               echo "You must install Xcode before continuing... you can get it for free in the App Store:"
+               echo "https://itunes.apple.com/us/app/xcode/id497799835"
+          else
+               echo "The Xcode 'Command Line Tools' package is missing, here are instructions for installing it:"
+               echo "http://goo.gl/XFVcY3"
+          fi
+          exit 1
+     fi
 fi
 
-#OSMOSIS
-if [[ `perl -e 'print ((qx(osmosis --v 2>&1) =~ m/INFO:\sOsmosis\sVersion\s0.(4[2-9]|[5-9][0-9])/m) ? 0:1)'` == 1 ]]
+if [[ $OS == "debian" ]] && [[ `which gcc` == '' ]]
 then
-    read -p "Osmosis 0.42+ is required. Install the latest version? [y/n]" -n 1
+    read -p "$(echo -e '\n\bA compiler is required. Install the build-essential package? [y/n]\n\b')" -n 1
     if [[ $REPLY =~ ^[Yy]$ ]]
     then
-        sudo apt-get -y install openjdk-6-jdk git
-            git clone https://github.com/openstreetmap/osmosis.git
-            cd osmosis
-            ./gradlew assemble
-            unzip -uo package/build/distribution/*.zip -d /usr
-            chmod +x /usr/bin/osmosis
+        sudo apt-get -y install build-essential
     else
         echo "Exiting installer"
         exit 1
     fi
 fi
 
+function install_java {
+    if [[ `which java` == '' ]]
+        then
+            read -p "$(echo -e '\n\bJava is required. Install the Java package? [y/n]\n\b')" -n 1
+            if [[ $REPLY =~ ^[Yy]$ ]]
+            then
+                if [[ $OS == 'debian' ]]
+                then
+                    sudo apt-get -y install openjdk-6-jdk
+                elif [[ $OS == 'osx' ]]
+                then
+                    cursl -S http://support.apple.com/downloads/DL1572/en_US/JavaForOSX2013-05.dmg > java.dmg
+                    hdiutil mount java.dmg
+                    target_volume=`perl -e '\`diskutil list /\` =~ m/Apple_HFS\s(.*)/m;@a=split(/\s{2,}/, $1);print ($a[0])'`
+                    sudo installer -package \
+                        "/Volumes/Java for OS X 2013-005/JavaForOSX.pkg" \
+                        -target "/Volumes/$target_volume"
+                    source /etc/profile
+                    hdiutil unmount "/Volumes/Java for OS X 2013-005"
+                    rm java.dmg
+            fi
+        else
+            echo "Exiting installer"
+            exit 1
+        fi
+    fi
+}
+
+function install_git {
+    if [[ `which git` == '' ]]
+    then
+        read -p "$(echo -e '\n\bGIT is required. Install the git package? [y/n]\n\b')" -n 1
+        if [[ $REPLY =~ ^[Yy]$ ]]
+        then
+            if [[ $OS == 'debian' ]]
+            then
+                sudo apt-get -y install git
+            elif [[ $OS == 'osx' ]]
+            then
+                cursl -S https://git-osx-installer.googlecode.com/files/git-1.7.10.3-intel-universal-snow-leopard.dmg >  git.dmg
+                hdiutil mount git.dmg
+                target_volume=`perl -e '\`diskutil list /\` =~ m/Apple_HFS\s(.*)/m;@a=split(/\s{2,}/, $1);print ($a[0])'`
+                sudo installer -package \
+                    "/Volumes/Git 1.7.10.3 Snow Leopard Intel Universal/git-1.7.10.3-intel-universal-snow-leopard.pkg" \
+                    -target "/Volumes/$target_volume"
+                source /etc/profile
+                hdiutil unmount "/Volumes/Git 1.7.10.3 Snow Leopard Intel Universal"
+            fi
+        else
+            echo "Exiting installer"
+            exit 1
+        fi
+    fi
+}
+
+#OSMOSIS
+if [[ `perl -e 'print ((qx(osmosis --v 2>&1) =~ m/INFO:\sOsmosis\sVersion\s0.(4[2-9]|[5-9][0-9])/m) ? 0:1)'` == 1 ]]
+then
+    read -p "$(echo -e '\n\bOsmosis 0.42+ is required. Install the latest version? [y/n]\n\b')" -n 1
+    if [[ $REPLY =~ ^[Yy]$ ]]
+    then
+        install_git
+        install_java
+        git clone https://github.com/openstreetmap/osmosis.git
+        cd osmosis
+        ./gradlew assemble
+        unzip -uo package/build/distribution/*.zip -d /usr
+        chmod +x /usr/bin/osmosis
+    else
+        echo "Exiting installer"
+        exit 1
+    fi
+fi
+
+#TODO: make wrapper for handling dmg/package installations on OSX
+
+function osx_install_gdal {
+    curl -S http://www.kyngchaos.com/files/software/frameworks/GDAL_Complete-1.9.dmg > GDAL_Complete-1.9.dmg
+    hdiutil mount GDAL_Complete-1.9.dmg
+    target_volume=`perl -e '\`diskutil list /\` =~ m/Apple_HFS\s(.*)/m;@a=split(/\s{2,}/, $1);print ($a[0])'`
+    sudo installer -package "/Volumes/GDAL Complete/GDAL Complete.pkg" -target "/Volumes/$target_volume"
+    sudo ln -s /Library/Frameworks/GDAL.framework/Versions/1.9/Programs/ogr2ogr /usr/bin
+    hdiutil unmount "/Volumes/GDAL Complete"
+}
+
 #OGR2OGR (GDAL)
 if [[ ! `ogr2ogr --help` == "Usage"* ]]
 then
-    if [[ -e /etc/debian_version ]]
+    if [[ $OS == 'debian' ]]
     then
-        read -p "GDAL is required for ogr2ogr. Install the latest version? [y/n]" -n 1
+        read -p "$(echo -e '\n\bGDAL is required for ogr2ogr. Install the latest version? [y/n]\n\b')" -n 1
         if [[ $REPLY =~ ^[Yy]$ ]]
         then
             sudo apt-get -y install gdal-bin
@@ -73,16 +173,12 @@ then
             echo "Exiting installer"
             exit 1
         fi
-    elif [[ "$OSTYPE" == "darwin"* ]]
+    elif [[ $OS == 'osx' ]]
     then
-        read -p "GDAL is required for ogr2ogr. Install the latest version? [y/n]" -n 1
+        read -p "$(echo -e '\n\bGDAL is required for ogr2ogr. Install the latest version? [y/n]\n\b')" -n 1
         if [[ $REPLY =~ ^[Yy]$ ]]
         then
-            curl -S http://www.kyngchaos.com/files/software/frameworks/GDAL_Complete-1.9.dmg > GDAL_Complete-1.9.dmg
-            hdiutil mount GDAL_Complete-1.9.dmg
-            target_volume=`perl -e '\`diskutil list /\` =~ m/Apple_HFS\s(.*)/m;@a=split(/\s{2,}/, $1);print ($a[0])'`
-            sudo installer -package "/Volumes/GDAL Complete/GDAL Complete.pkg" -target "/Volumes/$target_volume"
-            sudo ln -s /Library/Frameworks/GDAL.framework/Versions/1.9/Programs/ogr2ogr /usr/bin
+            osx_install_gdal
         else
             echo "Exiting installer"
             exit 1
@@ -100,10 +196,15 @@ then
     fi
 fi
 
-#Python GDAL (the OSX package includes this... I think)
-if [[ -e /etc/debian_version ]]
+#Python GDAL (the OSX package includes this)
+if [[ $OS == 'debian' ]]
 then
     sudo apt-get -y install python-gdal
+if [[ $OS == 'osx' ]] && [[ `sw_vers` == *"10.9"* ]] && [[ ! `python -c 'import osgeo'` == '' ]]
+    then
+        #GDAL needs to be reinstalled on 10.9 if it was installed on a lower version of OSX
+        osx_install_gdal
+    fi
 fi
 
 #OSMFILTER - used to strip the .osm file down to just what we need for routing
