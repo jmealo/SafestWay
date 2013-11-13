@@ -35,7 +35,7 @@ your root password, visit: http://support.apple.com/kb/ht1528
 *******************************************************************************
 NOTICE
     #TODO: prompt function
-    
+
     read -p "$(echo -e '\n\bWould you like to adjust the kernel parameters as needed? [y/n]\n\b')" -n 1
     if [[ $REPLY =~ ^[Yy]$ ]]
     then
@@ -140,9 +140,20 @@ then
         install_java
         git clone https://github.com/openstreetmap/osmosis.git
         cd osmosis
+         if [[ $OS == 'debian' ]]
+         then
+            export LC_COLLATE=C
+            export LC_CTYPE=en_US.UTF-8
+            sudo locale-gen en_US.UTF-8
+        fi
         ./gradlew assemble
         unzip -uo package/build/distribution/*.zip -d /usr
         chmod +x /usr/bin/osmosis
+        if [[ $OS == 'debian' ]]
+        then
+            source /etc/default/locale
+            source /etc/environment
+        fi
     else
         echo "Exiting installer"
         exit 1
