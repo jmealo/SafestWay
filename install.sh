@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 cat <<HEADER
      _______.     ___       _______  _______     _______.___________.
     /       |    /   \     |   ____||   ____|   /       |           |
@@ -23,6 +23,7 @@ HEADER
 if [[ -e /etc/debian_version ]]; then OS="debian"; fi
 if [[ $OSTYPE == "darwin"* ]]; then OS="osx"; fi
 if [[ $OSTYPE == "solaris"* ]]; then OS="smartos"; fi
+if [[ $OSTYPE == "freebsd"* ]]; then OS="freebsd"; fi
 
 #OSX Specific
 if [[ $OS == "osx" ]]
@@ -147,7 +148,7 @@ then
             sudo locale-gen en_US.UTF-8
         fi
         ./gradlew assemble
-        unzip -uo package/build/distribution/*.zip -d /usr
+        unzip -u package/build/distribution/*.zip -d /usr
         chmod +x /usr/bin/osmosis
         if [[ $OS == 'debian' ]]
         then
@@ -174,7 +175,21 @@ function osx_install_gdal {
 #OGR2OGR (GDAL)
 if [[ ! `ogr2ogr --help` == "Usage"* ]]
 then
-    if [[ $OS == 'debian' ]]
+    if [[ $OS == 'freebsd' ]]
+    then
+        read -p "$(echo -e '\n\bGDAL is required for ogr2ogr. Install the latest version? [y/n]\n\b')" -n 1
+        if [[ $REPLY =~ ^[Yy]$ ]]
+        then
+            echo "Updating /usr/ports..."
+            #portsnap fetch update
+            curl -S https://gist.github.com/jmealo/e0129c4e5c5f419a469d/raw > /var/db/ports/graphics_gdal/options
+            curl -S https://gist.github.com/jmealo/7c9df74068c686e45c5f/raw > /var/db/ports/graphics_geos/options
+            (cd /usr/ports/graphics/gdal && make -J4 install clean)
+        else
+            echo "Exiting installer"
+            exit 1
+        fi
+    elif [[ $OS == 'debian' ]]
     then
         read -p "$(echo -e '\n\bGDAL is required for ogr2ogr. Install the latest version? [y/n]\n\b')" -n 1
         if [[ $REPLY =~ ^[Yy]$ ]]
@@ -211,11 +226,13 @@ fi
 if [[ $OS == 'debian' ]]
 then
     sudo apt-get -y install python-gdal
-if [[ $OS == 'osx' ]] && [[ `sw_vers` == *"10.9"* ]] && [[ ! `python -c 'import osgeo'` == '' ]]
-    then
-        #GDAL needs to be reinstalled on 10.9 if it was installed on a lower version of OSX
-        osx_install_gdal
-    fi
+elif [[ $OS == 'osx' ]] && [[ `sw_vers` == *"10.9"* ]] && [[ ! `python -c 'import osgeo'` == '' ]]
+then
+    #GDAL needs to be reinstalled on 10.9 if it was installed on a lower version of OSX
+    osx_install_gdal
+elif [[ $OS == 'freebsd' ]]
+then
+    pkg_add -r py27-gdal
 fi
 
 #OSMFILTER - used to strip the .osm file down to just what we need for routing
@@ -224,7 +241,7 @@ curl http://m.m.i24.cc/osmfilter.c |cc -x c - -O3 -o osmfilter
 
 #most city extracts are bounding box; we'll use the shape file to trim to the city likmits
 curl -S http://www.pasda.psu.edu/philacity/data/phila-city_limits_shp.zip > phila-city_limits_shp.zip
-unzip -uo phila-city_limits_shp.zip
+unzip -u phila-city_limits_shp.zip
 
 #convert to the correct coordinate system
 ogr2ogr -t_srs EPSG:4326 -a_srs EPSG:4326 philly.shp city_limits.shp
@@ -245,7 +262,7 @@ osmosis --read-bin philly.osm.pbf --way-key keyList="highway" --used-node --writ
 ./osmfilter philadelphia.osm --drop-relations --drop-author --drop-version -o=philly.osm
 
 curl -S http://www.pasda.psu.edu/philacity/data/PhiladelphiaCensusBlockGroups201201.zip > PhiladelphiaCensusBlockGroups201201.zip
-unzip -uo PhiladelphiaCensusBlockGroups201201.zip
+unzip -u PhiladelphiaCensusBlockGroups201201.zip
 
 ogr2ogr -F GeoJSON -skip-failures -t_srs EPSG:4326 -a_srs EPSG:4326 census_block_groups.json "Philadelphia Census Block Groups/PhiladelphiaCensusBlockGroups201201.shp"
 
@@ -253,7 +270,7 @@ git clone git://github.com/azavea/geo-data.git
 ogr2ogr -F GeoJSON -skip-failures -t_srs EPSG:4326 -a_srs EPSG:4326 philly_neighborhoods.json geo-data/Neighborhoods_Philadelphia/Neighborhoods_Philadelphia.shp
 
 curl -S http://www2.census.gov/geo/tiger/TIGER2010BLKPOPHU/tabblock2010_42_pophu.zip > tabblock2010_42_pophu.zip
-unzip -uo tabblock2010_42_pophu.zip
+unzip -u tabblock2010_42_pophu.zip
 
 ogr2ogr -F GeoJSON -skip-failures -where "COUNTYFP10='101'" tabblock2010_42_pophu.json tabblock2010_42_pophu.shp
 #extract population and housing units for Philadelphia county only
@@ -263,4 +280,4 @@ rm philadelphia.osm.pbf
 rm philadelphia.osm
 
 curl -S http://gis.phila.gov/data/police_inct.zip > police_inct.zip
-unzip -uo police_inct.zip
+unzip -u police_inct.zip
