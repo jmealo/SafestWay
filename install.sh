@@ -34,6 +34,9 @@ OSX has low limits on the number of open sockets and files. We need to increase
 them to process data in parallel. (THIS REQUIRES ROOT ACCESS) If you don't know
 your root password, visit: http://support.apple.com/kb/ht1528
 *******************************************************************************
+
+Please follow any dialogs that appear regarding XCode and the Java JDK.
+
 NOTICE
     #TODO: prompt function
 
@@ -50,7 +53,7 @@ NOTICE
     fi
 
     #check for Xcode and command line tools or a third-party GCC/clang
-    if [[ `which gcc` == '' ]]
+    if [[ `which gcc` == '' ]] || [[ `gcc 2>&1` == *"xcode"* ]]
     then
          if [[ ! `xcode-select -v` == "xcode-select version"* ]]
          then
