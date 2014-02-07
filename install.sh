@@ -325,6 +325,6 @@ ogr2ogr -F GeoJSON -skip-failures -where "COUNTYFP10='101'" tabblock2010_42_poph
 rm philadelphia.osm.pbf
 rm philadelphia.osm
 
-wget -c -N http://gis.phila.gov/data/police_inct.zip
+wget -c -N http://gis.phila.gov/gisdata/police_inct.zip
 unzip -u police_inct.zip
 
