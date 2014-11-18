@@ -48,6 +48,8 @@ Please follow any dialogs that appear regarding XCode and the Java JDK.
 
 NOTICE
 
+if [[ `ulimit` -ne "unlimited" ]] || [[ `sysctl -n kern.maxfilesperproc` -ne "1048576" ]] || [[ `sysctl -n kern.maxfiles` -ne "1048600" ]]; then
+
     read -p "$(echo -e '\n\bWould you like to adjust the kernel parameters as needed? [y/n]\n\b')" -n 1
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         echo ""
@@ -58,7 +60,7 @@ NOTICE
         echo ""
         echo "Continuing begrudgingly... you may run into problems."
     fi
-
+fi
     #check for Xcode and command line tools or a third-party GCC/clang
     if is_missing gcc || [[ `gcc 2>&1` == *"xcode"* ]]; then
         if [[ ! `xcode-select -v` == "xcode-select version"* ]]; then
@@ -72,9 +74,6 @@ NOTICE
     fi
 fi
 
-
-
-
 #TODO: do this on first run only...
 if [[ $OS == "debian" ]]; then
     sudo apt-get update -y
@@ -84,7 +83,7 @@ fi
 
 if is_missing wget ; then
     if [[ $OS == "osx" ]]; then
-        wget -N -c http://ftp.gnu.org/gnu/wget/wget-1.15.tar.gz
+        curl http://ftp.gnu.org/gnu/wget/wget-1.15.tar.gz | tar -xf- -C .
         tar -xzvf wget-1.15.tar.gz
         cd wget-1.15
         ./configure --with-ssl=openssl
@@ -272,8 +271,8 @@ fi
 #Python GDAL (the OSX package includes this)
 if [[ $OS == 'debian' ]]; then
     sudo apt-get -y install python-gdal
-elif [[ $OS == 'osx' ]] && [[ `sw_vers` == *"10.9"* ]] && [[ ! `python -c 'import osgeo'` == '' ]]; then
-    #GDAL needs to be reinstalled on 10.9 if it was installed on a lower version of OSX
+elif [[ $OS == 'osx' ]] && [[ ! `python -c 'import osgeo'` == '' ]]; then
+    #GDAL needs to be reinstalled when OSX is upgraded from a prior version (10.9 and 10.10 confirmed)
     osx_install_gdal
 elif [[ $OS == 'freebsd' ]]; then
     pkg_add -r py27-gdal
